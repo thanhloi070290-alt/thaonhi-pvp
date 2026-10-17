@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Bọt PvP</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root { --bg:#b3bdf5; --ink:#33422a; --leaf:#8cba63; --leaf-d:#5f8a3c; --paper:#f1f3ff; }
+  * { box-sizing:border-box; }
+  html, body { margin:0; height:100%; background:var(--bg) url(/bg.svg) center 62% / cover no-repeat fixed; color:var(--ink); overflow:hidden;
+    font-family:"Fredoka","Trebuchet MS","Segoe UI",sans-serif; user-select:none; -webkit-user-select:none; }
+  .screen { display:none; height:100%; align-items:center; justify-content:flex-start; flex-direction:column; gap:12px; padding:14px; overflow-y:auto; }
+  .screen > :first-child { margin-top:auto; } .screen > :last-child { margin-bottom:auto; }
+  .screen.on { display:flex; }
+  h1 { margin:0 0 6px; font-size:36px; }
+  .btn { font:inherit; font-weight:700; font-size:20px; color:#fff; background:var(--leaf);
+    border:4px solid var(--ink); border-radius:999px; padding:8px 30px; min-width:230px;
+    box-shadow:inset 0 -6px 0 var(--leaf-d); cursor:pointer; }
+  .btn:active:not(:disabled) { transform:translateY(2px); }
+  .btn:disabled { opacity:.6; cursor:default; }
+  .btn.small { font-size:15px; min-width:0; padding:4px 16px; border-width:3px; }
+  input[type=text], select { font:inherit; font-size:20px; text-align:center; width:230px; padding:7px;
+    border:4px solid var(--ink); border-radius:16px; background:var(--paper); color:var(--ink); }
+  #codeIn { text-transform:uppercase; letter-spacing:6px; }
+  label.chk { display:flex; gap:8px; align-items:center; font-weight:600; }
+  .msg { min-height:24px; font-weight:600; text-align:center; }
+  .code { font-size:52px; font-weight:700; letter-spacing:10px; }
+  .row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; justify-content:center; }
+
+  #game { justify-content:flex-start; gap:6px; padding:6px; }
+  .hud { display:grid; grid-template-columns:1fr auto 1fr; gap:10px; align-items:center; width:min(420px, calc(100vw - 12px)); }
+  .hud .who { font-weight:600; font-size:14px; line-height:1.1; }
+  .hud .who b { display:block; font-size:26px; line-height:1.1; }
+  .hud .who { display:grid; grid-template-columns:44px 1fr; column-gap:6px; align-items:center; }
+  .hud .who .av { grid-row:1/3; width:44px; height:44px; }
+  .hud .who.r { grid-template-columns:1fr 44px; text-align:right; }
+  .hud .who.r .av { grid-column:2; grid-row:1/3; }
+  .hud .mid { text-align:center; font-weight:700; }
+  .hud .mid #timer { font-size:22px; }
+  .stage { position:relative; display:flex; gap:12px; align-items:flex-start; }
+  #cv { display:block; background:rgba(255,255,255,.28); border:4px solid var(--ink); border-radius:8px; touch-action:none;
+    width:min(420px, calc(100vw - 12px), calc((100vh - 150px) * 0.65625)); aspect-ratio:420/640; height:auto; }
+  .side { text-align:center; font-weight:600; font-size:14px; }
+  #opp { display:block; width:140px; aspect-ratio:420/640; height:auto; background:rgba(255,255,255,.28); border:3px solid var(--ink); border-radius:6px; }
+  #nextCv { width:46px; height:46px; }
+  .chain { display:grid; grid-template-columns:repeat(4,1fr); gap:2px; margin-top:8px; font-size:18px; }
+  @media (max-width:760px) {
+    .side { position:absolute; right:6px; top:6px; width:84px; opacity:.85; pointer-events:none; }
+    #opp { width:84px; } .chain { display:none; }
+  }
+  #ov { position:fixed; inset:0; display:none; align-items:center; justify-content:center; text-align:center; padding:20px;
+    font-size:120px; font-weight:700; color:#fff; text-shadow:0 5px 0 var(--ink); pointer-events:none; }
+  #ov.small { font-size:30px; }
+  #mute { position:fixed; top:8px; right:8px; z-index:5; }
+  #flash { position:fixed; inset:0; pointer-events:none; background:rgba(255,60,90,.35); opacity:0; transition:opacity .35s; }
+  table { border-collapse:collapse; font-size:22px; }
+  td { padding:4px 14px; } td.n { text-align:right; font-weight:700; }
+  #banner { font-size:38px; font-weight:700; text-align:center; }
+</style>
+</head>
+<body>
+<button id="mute" class="btn small">🔊</button>
+<div id="flash"></div>
+
+<div id="lobby" class="screen on">
+  <h1>Bọt PvP</h1>
+  <input id="name" type="text" maxlength="12" placeholder="Tên của bạn">
+  <select id="mode">
+    <option value="0">Chơi đến khi thua</option>
+    <option value="120">Giới hạn 2 phút</option>
+    <option value="180">Giới hạn 3 phút</option>
+  </select>
+  <label class="chk"><input id="attack" type="checkbox"> Chế độ tấn công (combo gửi chuột sang đối thủ)</label>
+  <button id="btnCreate" class="btn">Tạo phòng</button>
+  <div>hoặc nhập mã phòng</div>
+  <input id="codeIn" type="text" maxlength="4" placeholder="ABCD">
+  <button id="btnJoin" class="btn">Vào phòng</button>
+  <div class="msg" id="lobbyMsg"></div>
+</div>
+
+<div id="waiting" class="screen">
+  <div>Gửi mã này cho bạn bè:</div>
+  <div class="code" id="roomCode">----</div>
+  <div class="row"><button id="btnCopy" class="btn small">Sao chép liên kết</button></div>
+  <div class="msg" id="roomInfo"></div>
+  <div class="msg">Đang chờ người chơi thứ hai…</div>
+</div>
+
+<div id="game" class="screen">
+  <div class="hud">
+    <div class="who"><img id="myAv" class="av" alt=""><span id="myName">Bạn</span><b id="score">0</b></div>
+    <div class="mid"><div id="timer">∞</div><canvas id="nextCv" width="92" height="92"></canvas></div>
+    <div class="who r"><img id="oppAv" class="av" alt=""><span id="oppName">Đối thủ</span><b id="oppScore">0</b></div>
+  </div>
+  <div class="stage">
+    <canvas id="cv"></canvas>
+    <div class="side">
+      <canvas id="opp"></canvas>
+      <div id="oppStatus" class="msg"></div>
+      <div class="chain" id="chain"></div>
+    </div>
+  </div>
+</div>
+
+<div id="result" class="screen">
+  <div id="banner"></div>
+  <table id="table"></table>
+  <div class="msg" id="best"></div>
+  <button id="btnAgain" class="btn">Chơi lại</button>
+  <button id="btnLobby" class="btn">Về sảnh</button>
+  <div class="msg" id="rematchMsg"></div>
+</div>
+
+<div id="ov"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+<script src="/animals.js"></script>
+<script src="/socket.io/socket.io.js"></script>
+<script>
+"use strict";
+if (typeof io === "undefined") {
+  document.getElementById("lobbyMsg").textContent = "Không tải được socket.io. Hãy chạy server (npm start) và mở http://localhost:3000, đừng mở file index.html trực tiếp.";
+  throw new Error("socket.io chưa tải");
+}
+const socket = io();
+const $ = (id) => document.getElementById(id);
+const screens = ["lobby", "waiting", "game", "result"];
+const setLobbyReady = (ok) => { $("btnCreate").disabled = !ok; $("btnJoin").disabled = !ok; };
+setLobbyReady(false);
+$("lobbyMsg").textContent = "Đang kết nối server…";
+socket.on("connect", () => { setLobbyReady(true); if ($("lobby").classList.contains("on")) $("lobbyMsg").textContent = ""; });
+socket.on("connect_error", () => { setLobbyReady(false); $("lobbyMsg").textContent = "Không kết nối được server. Kiểm tra server đang chạy và địa chỉ trang."; });
+if (typeof Matter === "undefined") $("lobbyMsg").textContent = "Không tải được Matter.js (cần Internet để tải từ CDN).";
+const show = (id) => screens.forEach((s) => $(s).classList.toggle("on", s === id));
+
+/* ---------------- Âm thanh ---------------- */
+let audioCtx = null, muted = localStorage.getItem("sk_mute") === "1";
+$("mute").textContent = muted ? "🔇" : "🔊";
+$("mute").onclick = () => { muted = !muted; localStorage.setItem("sk_mute", muted ? "1" : "0"); $("mute").textContent = muted ? "🔇" : "🔊"; };
+function beep(freq, dur = 0.09, type = "sine", vol = 0.12) {
+  if (muted) return;
+  try {
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    const t = audioCtx.currentTime, o = audioCtx.createOscillator(), g = audioCtx.createGain();
+    o.type = type; o.frequency.setValueAtTime(freq, t);
+    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(audioCtx.destination); o.start(t); o.stop(t + dur);
+  } catch (e) {}
+}
+
+/* ---------------- Sảnh ---------------- */
+$("name").value = localStorage.getItem("sk_name") || "";
+const urlRoom = new URLSearchParams(location.search).get("room");
+if (urlRoom) $("codeIn").value = urlRoom.toUpperCase().slice(0, 4);
+const myName = () => { const n = $("name").value.trim() || "Người chơi"; localStorage.setItem("sk_name", n); return n; };
+$("btnCreate").onclick = () => socket.emit("create", { name: myName(), duration: +$("mode").value, attack: $("attack").checked });
+$("btnJoin").onclick = () => socket.emit("join", { code: $("codeIn").value, name: myName() });
+$("btnLobby").onclick = () => { location.href = location.pathname; };
+$("btnCopy").onclick = () => {
+  const link = location.origin + "/?room=" + $("roomCode").textContent;
+  (navigator.clipboard ? navigator.clipboard.writeText(link) : Promise.reject()).then(
+    () => ($("btnCopy").textContent = "Đã sao chép!"), () => prompt("Sao chép liên kết:", link));
+};
+socket.on("created", ({ code, duration, attack }) => {
+  $("roomCode").textContent = code;
+  $("roomInfo").textContent = (duration ? duration / 60 + " phút" : "Chơi đến khi thua") + (attack ? " · Có tấn công" : "");
+  show("waiting");
+});
+socket.on("joinError", (m) => ($("lobbyMsg").textContent = m));
+socket.on("disconnect", () => { setLobbyReady(false); if (!finished || running) { running = false; runId++; showOv("Mất kết nối server.", true); } });
+
+/* ---------------- Cấu hình game ---------------- */
+const W = 420, H = 640, WALL = 14, LINE = 120;
+const LV = [
+  { r: 16,  e: "🐭", c: "#9fb3ff" }, { r: 22,  e: "🐸", c: "#8fd36b" },
+  { r: 29,  e: "🐱", c: "#ffd27a" }, { r: 36,  e: "🐰", c: "#ffb35a" },
+  { r: 44,  e: "🐶", c: "#c59cff" }, { r: 53,  e: "🐑", c: "#ffb3c7" },
+  { r: 63,  e: "🐨", c: "#6fbf4a" }, { r: 74,  e: "🐼", c: "#e8f5e0" },
+  { r: 86,  e: "🐯", c: "#ffa24a" }, { r: 99,  e: "🐻", c: "#b07a4a" },
+  { r: 113, e: "🦁", c: "#ffcf3f" },
+  { r: 125, e: "⭐", c: "#f2c79c" },
+];
+const POINTS = [1, 3, 6, 10, 15, 21, 28, 36, 45, 55, 66, 80];
+const DROP_MAX = 4;
+const SPR = makeSprites(LV.concat([{ r: 125 }])); // [11] = Thành Lợi (người chơi 2), [12] = Thảo Nhi (người chơi 1)
+const CHAR = { 1: SPR[12], 2: SPR[11] };
+let myRole = 1;
+const oppRole = () => 3 - myRole;
+const spriteOf = (level, who) => (level === 11 ? CHAR[who === "opp" ? oppRole() : myRole] : SPR[level]);
+const imgOf = (sp, px) => `<img width="${px}" height="${px}" src="${sp.cn.toDataURL()}" alt="">`;
+function buildChain() { $("chain").innerHTML = [...SPR.slice(0, 11), CHAR[myRole]].map((sp) => imgOf(sp, 34)).join(""); }
+function setAvatars() { $("myAv").src = CHAR[myRole].cn.toDataURL(); $("oppAv").src = CHAR[oppRole()].cn.toDataURL(); }
+buildChain();
+
+const { Engine, World, Bodies, Events } = Matter;
+const DPR = Math.min(2, window.devicePixelRatio || 1);
+const cv = $("cv"), ctx = cv.getContext("2d");
+const oppCv = $("opp"), octx = oppCv.getContext("2d");
+const nextCv = $("nextCv"), nctx = nextCv.getContext("2d");
+cv.width = W * DPR; cv.height = H * DPR;
+oppCv.width = 210 * DPR; oppCv.height = 320 * DPR;
+
+let engine, rng, curLevel, nextLevel, aimX = W / 2, canDrop = false, attackMode = false;
+let score = 0, finished = true, running = false, oppSnap = [];
+let overTime = 0, lastTs = 0, acc = 0, lastSend = 0, runId = 0, endAt = 0;
+let lastMergeAt = 0, chain = 0, fx = [], texts = [], oppGone = false;
+
+function mulberry32(a) {
+  return () => {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const rollLevel = () => Math.floor(rng() * (DROP_MAX + 1));
+
+function showOv(text, small) { const o = $("ov"); o.style.display = "flex"; o.className = small ? "small" : ""; o.textContent = text; }
+const hideOv = () => ($("ov").style.display = "none");
+
+/* ---------------- Vào trận ---------------- */
+socket.on("start", ({ seed, duration, attack, players, p1 }) => {
+  const oppId = Object.keys(players).find((id) => id !== socket.id);
+  myRole = p1 === socket.id ? 1 : 2;
+  $("oppName").textContent = players[oppId] || "Đối thủ";
+  $("myName").textContent = (players[socket.id] || "Bạn") + " (bạn)";
+  buildChain(); setAvatars();
+  beginMatch(seed, duration, attack);
+});
+
+function beginMatch(seed, duration, attack) {
+  show("game");
+  const myRun = ++runId;
+  rng = mulberry32(seed);
+  curLevel = rollLevel(); nextLevel = rollLevel();
+  engine = Engine.create({ gravity: { y: 1.1 } });
+  const opts = { isStatic: true, friction: 0.3 };
+  World.add(engine.world, [
+    Bodies.rectangle(W / 2, H + 25, W + 100, 60, opts),
+    Bodies.rectangle(-WALL / 2 + 6, H / 2, WALL, H * 2, opts),
+    Bodies.rectangle(W + WALL / 2 - 6, H / 2, WALL, H * 2, opts),
+  ]);
+  Events.on(engine, "collisionStart", onCollide);
+  score = 0; finished = false; running = false; overTime = 0; canDrop = false; oppSnap = [];
+  fx = []; texts = []; chain = 0; lastMergeAt = 0; oppGone = false; attackMode = !!attack;
+  $("score").textContent = "0"; $("oppScore").textContent = "0"; $("oppStatus").textContent = "";
+  $("timer").textContent = duration ? fmt(duration * 1000) : "∞";
+  $("btnAgain").disabled = false; $("btnAgain").style.display = ""; $("rematchMsg").textContent = "";
+  drawNext();
+  let n = 3;
+  showOv(n);
+  beep(440, 0.1);
+  const t = setInterval(() => {
+    if (myRun !== runId) return clearInterval(t);
+    n--;
+    if (n > 0) { showOv(n); beep(440, 0.1); }
+    else {
+      clearInterval(t); hideOv(); beep(880, 0.2);
+      running = true; canDrop = true; lastTs = performance.now(); acc = 0;
+      endAt = duration ? performance.now() + duration * 1000 : 0;
+      requestAnimationFrame((ts) => loop(ts, myRun));
+    }
+  }, 1000);
+}
+
+const fmt = (ms) => { const s = Math.max(0, Math.ceil(ms / 1000)); return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0"); };
+
+/* ---------------- Vật lý ---------------- */
+function makeFruit(x, y, level, pop) {
+  const b = Bodies.circle(x, y, LV[level].r, { restitution: 0.15, friction: 0.2, density: 0.002 });
+  b.level = level; b.born = performance.now(); b.merged = false; b.isFruit = true; b.pop = pop ? 1 : 0;
+  World.add(engine.world, b);
+  return b;
+}
+
+function onCollide(ev) {
+  for (const { bodyA: a, bodyB: b } of ev.pairs) {
+    if (!a.isFruit || !b.isFruit || a.merged || b.merged || a.level !== b.level) continue;
+    a.merged = b.merged = true;
+    const lvl = a.level, now = performance.now();
+    const x = (a.position.x + b.position.x) / 2, y = (a.position.y + b.position.y) / 2;
+    World.remove(engine.world, [a, b]);
+    chain = now - lastMergeAt < 1200 ? chain + 1 : 1;
+    lastMergeAt = now;
+    const gain = POINTS[lvl] + (chain >= 2 ? chain * 2 : 0);
+    score += gain; $("score").textContent = score;
+    texts.push({ x, y, t: 0, txt: "+" + gain + (chain >= 2 ? "  combo x" + chain : "") });
+    fx.push({ x, y, t: 0, r: LV[Math.min(lvl + 1, LV.length - 1)].r * 1.4, c: LV[lvl].c });
+    beep(300 + lvl * 60, 0.12, "triangle");
+    if (lvl < LV.length - 1) makeFruit(x, y, lvl + 1, true);
+    if (attackMode && chain >= 3) socket.emit("attack", Math.min(3, chain - 2));
+  }
+}
+
+socket.on("attack", (n) => {
+  if (!running || finished) return;
+  $("flash").style.opacity = 1; setTimeout(() => ($("flash").style.opacity = 0), 150);
+  beep(120, 0.25, "sawtooth", 0.15);
+  for (let i = 0; i < n; i++) {
+    setTimeout(() => { if (running && !finished) makeFruit(40 + Math.random() * (W - 80), 30, 0, false); }, i * 250);
+  }
+});
+
+function dropFruit() {
+  if (!canDrop || !running || finished) return;
+  const r = LV[curLevel].r;
+  makeFruit(clampX(aimX, r), 40, curLevel, false);
+  beep(520, 0.05, "square", 0.06);
+  curLevel = nextLevel; nextLevel = rollLevel(); drawNext();
+  canDrop = false;
+  setTimeout(() => (canDrop = true), 500);
+}
+const clampX = (x, r) => Math.max(WALL + r, Math.min(W - WALL - r, x));
+
+/* ---------------- Điều khiển ---------------- */
+function setAim(ev) { const rc = cv.getBoundingClientRect(); aimX = (ev.clientX - rc.left) * (W / rc.width); }
+cv.addEventListener("pointermove", setAim);
+cv.addEventListener("pointerdown", setAim);
+cv.addEventListener("pointerup", (e) => { setAim(e); dropFruit(); });
+window.addEventListener("keydown", (e) => {
+  if (e.key === "ArrowLeft") aimX -= 22;
+  if (e.key === "ArrowRight") aimX += 22;
+  if (e.key === " " || e.key === "ArrowDown") { e.preventDefault(); dropFruit(); }
+});
+
+/* ---------------- Vòng lặp ---------------- */
+function loop(ts, myRun) {
+  if (myRun !== runId) return;
+  const dt = Math.min(50, ts - lastTs); lastTs = ts;
+  if (!finished) {
+    acc += dt;
+    while (acc >= 1000 / 60) { Engine.update(engine, 1000 / 60); acc -= 1000 / 60; }
+    checkLose(dt, ts);
+    if (endAt) {
+      $("timer").textContent = fmt(endAt - ts);
+      if (ts >= endAt && !finished) return selfOver("Hết giờ! Chờ đối thủ…");
+    }
+    if (ts - lastSend > 200) { lastSend = ts; sendState(); }
+  }
+  render(dt);
+  requestAnimationFrame((t) => loop(t, myRun));
+}
+
+function checkLose(dt, now) {
+  const over = engine.world.bodies.some((b) => b.isFruit && now - b.born > 1500 &&
+    b.speed < 0.6 && b.position.y - LV[b.level].r < LINE);
+  overTime = over ? overTime + dt : 0;
+  if (overTime > 2000 && !finished) selfOver("Bạn đã thua! Chờ đối thủ…");
+}
+
+function selfOver(msg) {
+  finished = true;
+  sendState();
+  socket.emit("gameover", score);
+  beep(160, 0.4, "sawtooth", 0.14);
+  showOv(msg, true);
+}
+
+function sendState() {
+  const bodies = engine.world.bodies.filter((b) => b.isFruit)
+    .map((b) => [Math.round(b.position.x), Math.round(b.position.y), b.level, Math.round(b.angle * 100) / 100]);
+  socket.emit("state", { score, bodies });
+}
+
+socket.on("opponentState", (p) => { oppSnap = p.bodies; $("oppScore").textContent = p.score; });
+socket.on("opponentOver", (s) => { $("oppScore").textContent = s; $("oppStatus").textContent = "Đã thua"; });
+
+/* ---------------- Kết thúc ---------------- */
+socket.on("result", ({ players, winner }) => {
+  running = false; runId++; hideOv();
+  const ids = Object.keys(players);
+  const me = players[socket.id], opp = players[ids.find((i) => i !== socket.id)];
+  $("banner").textContent = winner === null ? "Hòa! 🤝" : winner === socket.id ? "Bạn thắng! 🎉" : "Bạn thua 😢";
+  $("table").innerHTML = `<tr><td>${me.name} (bạn)</td><td class="n">${me.score}</td></tr><tr><td>${opp.name}</td><td class="n">${opp.score}</td></tr>`;
+  const best = Math.max(+localStorage.getItem("sk_best") || 0, me.score);
+  localStorage.setItem("sk_best", best);
+  $("best").textContent = "Điểm cao nhất của bạn: " + best;
+  show("result");
+});
+$("btnAgain").onclick = () => {
+  socket.emit("rematch");
+  $("btnAgain").disabled = true;
+  $("rematchMsg").textContent = "Đang chờ đối thủ đồng ý…";
+};
+socket.on("rematchWanted", () => { if (!oppGone) $("rematchMsg").textContent = "Đối thủ muốn chơi lại!"; });
+socket.on("opponentLeft", () => {
+  oppGone = true;
+  if ($("result").classList.contains("on")) {
+    $("btnAgain").style.display = "none"; $("rematchMsg").textContent = "Đối thủ đã thoát.";
+  } else {
+    running = false; runId++; hideOv();
+    $("banner").textContent = "Đối thủ đã thoát — bạn thắng! 🎉";
+    $("table").innerHTML = ""; $("best").textContent = ""; $("rematchMsg").textContent = "";
+    $("btnAgain").style.display = "none";
+    show("result");
+  }
+});
+
+/* ---------------- Vẽ ---------------- */
+function drawFruit(c, x, y, level, k, scale = 1, angle = 0, who = "me") {
+  const sp = spriteOf(level, who), w = sp.half * 2 * scale * k;
+  c.save();
+  c.translate(x * k, y * k); c.rotate(angle);
+  c.drawImage(sp.cn, -w / 2, -w / 2, w, w);
+  c.restore();
+}
+
+function render(dt) {
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  ctx.clearRect(0, 0, W, H);
+  ctx.setLineDash([8, 8]); ctx.strokeStyle = "rgba(51,66,42,.5)"; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(0, LINE); ctx.lineTo(W, LINE); ctx.stroke(); ctx.setLineDash([]);
+  for (const b of engine.world.bodies) {
+    if (!b.isFruit) continue;
+    if (b.pop > 0) b.pop = Math.max(0, b.pop - dt / 250);
+    drawFruit(ctx, b.position.x, b.position.y, b.level, 1, 1 + 0.25 * b.pop, b.angle);
+  }
+  if (!finished && canDrop) {
+    const x = clampX(aimX, LV[curLevel].r);
+    ctx.strokeStyle = "rgba(51,66,42,.25)"; ctx.beginPath(); ctx.moveTo(x, 40); ctx.lineTo(x, H); ctx.stroke();
+    drawFruit(ctx, x, 40, curLevel, 1);
+  }
+  fx = fx.filter((f) => (f.t += dt) < 400);
+  for (const f of fx) {
+    const p = f.t / 400;
+    ctx.globalAlpha = 1 - p; ctx.strokeStyle = f.c; ctx.lineWidth = 6 * (1 - p) + 1;
+    ctx.beginPath(); ctx.arc(f.x, f.y, f.r * (0.6 + 0.6 * p), 0, Math.PI * 2); ctx.stroke();
+  }
+  texts = texts.filter((t) => (t.t += dt) < 900);
+  ctx.font = "700 20px Fredoka, sans-serif"; ctx.textAlign = "center"; ctx.lineWidth = 4;
+  for (const t of texts) {
+    ctx.globalAlpha = 1 - t.t / 900;
+    ctx.strokeStyle = "#33422a"; ctx.fillStyle = "#fff";
+    ctx.strokeText(t.txt, t.x, t.y - t.t / 12); ctx.fillText(t.txt, t.x, t.y - t.t / 12);
+  }
+  ctx.globalAlpha = 1;
+
+  const k = 210 / W;
+  octx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  octx.clearRect(0, 0, 210, 320);
+  octx.setLineDash([5, 5]); octx.strokeStyle = "rgba(51,66,42,.5)"; octx.lineWidth = 1.5;
+  octx.beginPath(); octx.moveTo(0, LINE * k); octx.lineTo(210, LINE * k); octx.stroke(); octx.setLineDash([]);
+  for (const [x, y, l, a] of oppSnap) drawFruit(octx, x, y, l, k, 1, a || 0, "opp");
+}
+
+function drawNext() {
+  nctx.setTransform(1, 0, 0, 1, 0, 0);
+  nctx.clearRect(0, 0, 92, 92);
+  const sp = SPR[nextLevel], w = sp.half * 2 * (34 / LV[nextLevel].r);
+  nctx.drawImage(sp.cn, 46 - w / 2, 46 - w / 2, w, w);
+}
+
+/* ---------------- Trái tim xanh mỗi khi click / chạm ---------------- */
+const HEART = "data:image/svg+xml;utf8," + encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 29"><defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1">' +
+  '<stop offset="0" stop-color="#8fd8ff"/><stop offset="1" stop-color="#2f7bff"/></linearGradient></defs>' +
+  '<path d="M16 28C5 20 1 14 1 8.5C1 4 4.5 1 8.5 1C11.5 1 14 2.7 16 5.6C18 2.7 20.5 1 23.5 1C27.5 1 31 4 31 8.5C31 14 27 20 16 28Z" ' +
+  'fill="url(#g)" stroke="#1d4fb8" stroke-width="1.5" stroke-linejoin="round"/>' +
+  '<ellipse cx="9.5" cy="8" rx="3" ry="2" fill="#fff" opacity=".65" transform="rotate(-30 9.5 8)"/></svg>');
+new Image().src = HEART;
+
+function burstHearts(x, y) {
+  for (let i = 0; i < 7; i++) {
+    const el = document.createElement("img");
+    el.src = HEART; el.alt = ""; el.draggable = false;
+    const size = 14 + Math.random() * 16;
+    el.style.cssText = `position:fixed;left:${x - size / 2}px;top:${y - size / 2}px;width:${size}px;height:${size}px;` +
+      "pointer-events:none;z-index:50;will-change:transform,opacity;";
+    document.body.appendChild(el);
+    const ang = -Math.PI / 2 + (Math.random() - 0.5) * 2.2, dist = 50 + Math.random() * 70;
+    const dx = Math.cos(ang) * dist, dy = Math.sin(ang) * dist - 20, rot = (Math.random() - 0.5) * 60;
+    const anim = el.animate([
+      { transform: "translate(0,0) scale(.3) rotate(0deg)", opacity: 1 },
+      { transform: `translate(${dx * 0.6}px,${dy * 0.6}px) scale(1.1) rotate(${rot * 0.6}deg)`, opacity: 1, offset: 0.45 },
+      { transform: `translate(${dx}px,${dy - 30}px) scale(.8) rotate(${rot}deg)`, opacity: 0 },
+    ], { duration: 800 + Math.random() * 500, easing: "cubic-bezier(.2,.7,.3,1)" });
+    anim.onfinish = () => el.remove();
+  }
+}
+window.addEventListener("pointerdown", (e) => { if (e.button === 0) burstHearts(e.clientX, e.clientY); }, true);
+</script>
+</body>
+</html>

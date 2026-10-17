@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bảng nhân vật</title>
+<style>
+  body{margin:0;padding:20px;background:#b3bdf5;font-family:"Trebuchet MS",sans-serif;color:#33422a}
+  h1{text-align:center;margin:0 0 16px}
+  .g{display:flex;flex-wrap:wrap;gap:14px;justify-content:center;align-items:flex-end}
+  .c{background:rgba(255,255,255,.35);border:3px solid #33422a;border-radius:14px;padding:8px 10px;text-align:center;font-weight:700}
+  .c small{display:block;font-weight:600}
+</style></head><body>
+<h1>Bảng nhân vật (nhỏ → lớn)</h1><div class="g" id="g"></div>
+<script src="/animals.js"></script>
+<script>
+const LV=[16,22,29,36,44,53,63,74,86,99,113,125,125].map(r=>({r}));
+const names=["Chuột","Ếch","Mèo","Thỏ","Chó","Cừu","Koala","Gấu trúc","Hổ","Gấu","Sư tử","Thành Lợi (người chơi 2)","Thảo Nhi (người chơi 1)"];
+makeSprites(LV).forEach((s,i)=>{
+  const d=document.createElement("div");d.className="c";
+  const c=document.createElement("canvas");c.width=c.height=Math.round(s.half*2*1.5);
+  c.getContext("2d").drawImage(s.cn,0,0,c.width,c.height);
+  d.appendChild(c);d.insertAdjacentHTML("beforeend",`${names[i]}<small>cấp ${i+1}</small>`);
+  document.getElementById("g").appendChild(d);
+});
+</script></body></html>
