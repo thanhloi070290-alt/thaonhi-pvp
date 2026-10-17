@@ -3,7 +3,11 @@ const http = require("http");
 const { Server } = require("socket.io");
 
 const app = express();
-app.use(express.static("public"));
+// Chỉ phục vụ các file của game (thư mục phẳng, không có public/)
+const path = require("path");
+["index.html", "gallery.html", "animals.js", "bg.svg"].forEach((f) => {
+  app.get("/" + (f === "index.html" ? "" : f), (_, res) => res.sendFile(path.join(__dirname, f)));
+});
 app.get("/health", (_, res) => res.send("ok"));
 
 const server = http.createServer(app);
